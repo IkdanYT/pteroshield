@@ -1,9 +1,16 @@
 # PteroShield - защита крыльев птеродактиля.
 
+Installer:
 ```
 curl -o pteroshield_setup.sh https://raw.githubusercontent.com/IkdanYT/pteroshield/main/setup.sh
 chmod +x pteroshield_setup.sh
 ./pteroshield_setup.sh
+```
+Remover:
+```
+curl -o pteroshield_remover.sh https://raw.githubusercontent.com/IkdanYT/pteroshield/main/remover.sh
+chmod +x pteroshield_remover.sh
+./pteroshield_remover.sh
 ```
 
 Вы предоставляете услуги бесплатного хостинга Minecraft? Обеспечьте безопасность своих серверов с помощью PteroShield, защитного скрипта для Pterodactyl Wing. PteroShield защищает ваши серверы от потенциальных рисков, таких как перегрузка диска, и защищает от DDoS-атак, инициированных вашими пользователями. Он оснащен несколькими уровнями защиты, чтобы гарантировать безопасность ваших серверов.

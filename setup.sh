@@ -4,132 +4,96 @@ CONFIG_FILE="/root/pulsar_security/config.yml"
 LOG_DIRECTORY="/root/pulsar_security/log"
 LOG_FILE="$LOG_DIRECTORY/pulsar_security_script.log"
 
-# Функция для запроса конфигурации
-prompt_for_configuration() {
-  echo "Введите данные для конфигурации:"
-  read -rp "Введите URL Discord вебхука: " DISCORD_WEBHOOK_URL
-  read -rp "Введите имя хоста: " HOST_NAME
-  echo "Автоматическое определение доступного дискового пространства..."
-  STORAGE_LIMIT=$(df / | awk 'END{print int($4/1024/1024*0.9)"G"}')
-  echo "Установлено ограничение на использование диска: $STORAGE_LIMIT"
-  echo "Тестирование скорости интернета..."
-  NETWORK_LIMIT=$(speedtest --simple | grep 'Download:' | grep -oP '\d+\.\d+')
-  echo "Обнаружена скорость интернета: $NETWORK_LIMIT Mbps"
-  BLOCK_PORTS="N"
+# Функция для автоматического определения доступного места на диске
+auto_set_storage_limit() {
+  local free_space_percentage=90 # Задаем процент от свободного места, который желаем оставить свободным
+  local total_space
+  total_space=$(df / | tail -n 1 | awk '{print $4}')
+  total_space=$((total_space * 1024)) # Конвертируем в байты
+  total_space=$((total_space * free_space_percentage / 100))
+  STORAGE_LIMIT=${total_space}G
+}
+
+# Функция для тестирования скорости интернет-соединения
+speed_test_and_set_network_limit() {
+  echo "Выполняется тест скорости интернета..."
+  local speedtest_result
+  speedtest_result=$(speedtest-cli --simple)
+  echo "Результаты теста скорости интернета:"
+  echo "$speedtest_result"
   
-  read -rp "Какие порты вы будете выделять для игровых портов Pterodactyl Wings (например, 5000-6000)? " PTERODACTYL_WINGS_PORTS
-  read -rp "Хотите ли вы сейчас запустить установку Pterodactyl Wings? (Y/N): " PTERODACTYL_WINGS_INSTALL
-
-  echo "DISCORD_WEBHOOK_URL=\"$DISCORD_WEBHOOK_URL\"" > "$CONFIG_FILE"
-  echo "HOST_NAME=\"$HOST_NAME\"" >> "$CONFIG_FILE"
-  echo "STORAGE_LIMIT=\"$STORAGE_LIMIT\"" >> "$CONFIG_FILE"
-  echo "NETWORK_LIMIT=\"$NETWORK_LIMIT\"" >> "$CONFIG_FILE"
-  echo "BLOCK_PORTS=\"$BLOCK_PORTS\"" >> "$CONFIG_FILE"
-  echo "PTERODACTYL_WINGS_PORTS=\"$PTERODACTYL_WINGS_PORTS\"" >> "$CONFIG_FILE"
-  echo "PTERODACTYL_WINGS_INSTALL=\"$PTERODACTYL_WINGS_INSTALL\"" >> "$CONFIG_FILE"
-  echo "Конфигурация завершена и сохранена в $CONFIG_FILE."
+  local download_speed=$(echo "$speedtest_result" | grep Download | awk '{print $2}')
+  local upload_speed=$(echo "$speedtest_result" | grep Upload | awk '{print $2}')
+  echo "Введите скорость соединения, на которую хотите ограничить каждый сервер, в mbps (например, введите $upload_speed, если хотите установить предел на уровне текущей скорости загрузки)."
+  # Получение предела скорости сети от пользователя
+  read -p "Скорость соединения в mbps: " NETWORK_LIMIT
 }
 
-# Функция для создания файла конфигурации по умолчанию
-create_default_config() {
-  mkdir -p /root/pulsar_security
-
-  if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Создается файл конфигурации по умолчанию..."
-    cat <<EOF >"$CONFIG_FILE"
-DISCORD_WEBHOOK_URL=""
-HOST_NAME=""
-STORAGE_LIMIT=""
-NETWORK_LIMIT=""
-BLOCK_PORTS=""
-PTERODACTYL_WINGS_PORTS=""
-PTERODACTYL_WINGS_INSTALL=""
+# Функция для создания конфигурационного файла
+create_config_file() {
+  mkdir -p "$LOG_DIRECTORY" # Создаем каталог для логов, если он не существует
+  echo "Создание конфигурационного файла..."
+  cat <<EOF >"$CONFIG_FILE"
+DISCORD_WEBHOOK_URL="$DISCORD_WEBHOOK_URL"
+HOST_NAME="$HOST_NAME"
+STORAGE_LIMIT="$STORAGE_LIMIT"
+NETWORK_LIMIT="$NETWORK_LIMIT"
+PTERODACTYL_WINGS_PORTS="$PTERODACTYL_WINGS_PORTS"
+PTERODACTYL_WINGS_INSTALL="$PTERODACTYL_WINGS_INSTALL"
 EOF
-    echo "Файл конфигурации по умолчанию создан в $CONFIG_FILE"
-  fi
+  echo "Конфигурация сохранена в файл $CONFIG_FILE."
 }
 
-# Функция для загрузки конфигурации из файла
-load_configuration() {
-  [ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+# Запуск конфигурации подсистемы безопасности
+setup_security_configuration() {
+  auto_set_storage_limit
+  speed_test_and_set_network_limit
+
+  # Запрос у пользователя данных для конфигурации
+  read -p "Введите URL вебхука Discord: " DISCORD_WEBHOOK_URL
+  read -p "Введите имя вашего хоста: " HOST_NAME
+  read -p "Введите диапазон портов, который вы хотите выделить для Pterodactyl Wings (например, 5000-6000): " PTERODACTYL_WINGS_PORTS
+  read -p "Вы хотите сейчас установить Pterodactyl Wings? (Y/N): " PTERODACTYL_WINGS_INSTALL
+
+  create_config_file # Создание и сохранение конфигурационного файла
 }
 
-# Функция настройки логов
-setup_log_directory() {
-  mkdir -p "$LOG_DIRECTORY"
-}
-
-# Функция обновления настроек Docker
-update_docker_settings() {
-  load_configuration
-  SL="$STORAGE_LIMIT"
-  NL=${NETWORK_LIMIT%.*}
-  NL=$(echo "$NL" | awk '{print $1 "Mbit"}')
-  echo "Устанавливаются ограничения для Docker-контейнеров..."
-  for CU in $(docker ps -q); do
-    docker update --storage-opt size="$SL" $CU
-    docker exec $CU tc qdisc add dev eth0 root tbf rate "$NL" burst 10kbit latency 50ms
-  done
-  echo "Настройки Docker обновлены."
-}
-
-# Функция для разрешения портов Pterodactyl Wings
+# Функция для разрешения портов Pterodactyl Wings 
 allow_pterodactyl_wings_ports() {
-  load_configuration
-  if [[ "$PTERODACTYL_WINGS_PORTS" =~ ^[0-9]+-[0-9]+$ ]]; then
-    IFS='-' read -ra PR <<< "$PTERODACTYL_WINGS_PORTS"
-    SP="${PR[0]}"
-    EP="${PR[1]}"
-    sudo ufw allow "$SP:$EP/tcp"
-    sudo ufw allow "$SP:$EP/udp"
-    echo "Разрешены порты $SP до $EP для Pterodactyl Wings (TCP и UDP)."
+  if [ -n "$PTERODACTYL_WINGS_PORTS" ]; then
+    if [[ "$PTERODACTYL_WINGS_PORTS" =~ ^[0-9]+-[0-9]+$ ]]; 
+    then
+      IFS='-' read -ra PORT_RANGE <<< "$PTERODACTYL_WINGS_PORTS"
+      sudo ufw allow "${PORT_RANGE[0]}:${PORT_RANGE[1]}/tcp"
+      sudo ufw allow "${PORT_RANGE[0]}:${PORT_RANGE[1]}/udp"
+      echo "Порты с ${PORT_RANGE[0]} до ${PORT_RANGE[1]} разрешены для Pterodactyl Wings (TCP и UDP)."
+    else
+      echo "Неправильно задан диапазон портов для Pterodactyl Wings. Пожалуйста, введите допустимый диапазон в формате 'начало-конец' (например, 5000-5999)."
+    fi
   else
-    echo "Некорректный ввод портов Pterodactyl Wings. Укажите допустимый диапазон в формате 'начало-конец' (например, 5000-5999)."
+    echo "Порты для Pterodactyl Wings не были указаны."
   fi
 }
 
-# Функция для установки Pterodactyl Wings
+# Функция установки Pterodactyl Wings
 install_pterodactyl_wings() {
-  load_configuration
   if [[ "$PTERODACTYL_WINGS_INSTALL" =~ ^[Yy]$ ]]; then
-    echo "Установка Pterodactyl Wings..." | tee -a "$LOG_FILE"
-    bash <(curl -s https://pterodactyl-installer.se/) 2>&1 | tee -a "$LOG_FILE"
+    echo "Установка Pterodactyl Wings начата..." | tee -a "$LOG_FILE"
+    bash <(curl -s https://pterodactyl-installer.se/) | tee -a "$LOG_FILE"
     echo "Установка Pterodactyl Wings завершена." | tee -a "$LOG_FILE"
   else
-    echo "Установка Pterodactyl Wings пропущена. Вы можете выполнить ее вручную, когда будете готовы." | tee -a "$LOG_FILE"
+    echo "Установка Pterodactyl Wings пропущена. Вы можете запустить её вручную, когда будете готовы." | tee -a "$LOG_FILE"
   fi
 }
 
-# Функция для постоянного мониторинга загрузки CPU контейнеров
-monitor_container_cpu_usage() {
-  load_configuration
-  while :; do
-    stats=$(docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}")
+# Главная программа
 
-    while read -r line; do
-      container_name=$(echo "$line" | awk '{print $1}')
-      cpu_usage=$(echo "$line" | awk '{gsub(/%/, "", $2); print $2}')
+# Установить пакет bc, если он не установлен
+if ! command -v bc &> /dev/null; then
+    sudo apt update && sudo apt install bc -y
+fi
 
-      if (( $(echo "$cpu_usage > 100" | bc -l) )); then
-        echo "Обнаружена высокая загрузка CPU в контейнере: $container_name"
-        message=":warning: Обнаружена высокая загрузка CPU в контейнере *$container_name* на хосте *$HOST_NAME*. Использование CPU: *$cpu_usage%*"
-        curl -H "Content-Type: application/json" -d "{\"content\":\"$message\"}" "$DISCORD_WEBHOOK_URL"
-      fi
-    done <<< "$(echo "$stats" | tail -n +2)"
-
-    sleep 60
-  done
-}
-
-# Основной скрипт
-
-# Устанавливаем конфигурацию
-prompt_for_configuration
-create_default_config
-setup_log_directory
-update_docker_settings
+# Настройка конфигураций
+setup_security_configuration
 allow_pterodactyl_wings_ports
 install_pterodactyl_wings
-
-# Постоянный мониторинг нагрузки CPU в фоне
-monitor_container_cpu_usage &

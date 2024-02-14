@@ -1,21 +1,21 @@
-# PteroShield - Protect your Pterodactyl Wings.
+# PteroShield - защита крыльев птеродактиля.
 
 ```
-curl -o pteroshield_setup.sh https://raw.githubusercontent.com/v3meduu/pteroshield/main/setup.sh
+curl -o pteroshield_setup.sh https://raw.githubusercontent.com/IkdanYT/pteroshield/main/setup.sh
 chmod +x pteroshield_setup.sh
 ./pteroshield_setup.sh
 ```
 
-Are you operating a no-cost Minecraft hosting service? Ensure the security of your servers with PteroShield, the protective script for Pterodactyl Wing. PteroShield shields your servers from potential risks such as disk overload and defends against DDoS attacks initiated by your users. It comes equipped with multiple layers of security to guarantee the safety of your servers.
+Вы предоставляете услуги бесплатного хостинга Minecraft? Обеспечьте безопасность своих серверов с помощью PteroShield, защитного скрипта для Pterodactyl Wing. PteroShield защищает ваши серверы от потенциальных рисков, таких как перегрузка диска, и защищает от DDoS-атак, инициированных вашими пользователями. Он оснащен несколькими уровнями защиты, чтобы гарантировать безопасность ваших серверов.
 
-## This script safeguards your host from:
+## Этот скрипт защищает ваш хост от:
 
-- **DDoS attacks**: (including nodes used for DDoSing).
-- **Disk filling**: (limited to 100GB).
-- **Bitcoin Mining Prevention**: This script includes measures to prevent Bitcoin mining. You can manually configure the CPU trigger for suspension in the `/root/pteroshield/config.yml` file.
+- **DDoS-атак**: (включая узлы, используемые для DDoS-атаки).
+- **Заполнение диска**: (ограничено 100 ГБ).
+- **Предотвращение майнинга биткоинов**: Этот скрипт включает меры по предотвращению майнинга биткоинов. Вы можете вручную настроить триггер CPU для приостановки в файле `/root/pulsar_security/config.yml`.
 
-## Features
+## Особенности
 
-- **Configuration**: All settings can be conveniently configured in the `/root/pteroshield/config.yml` file.
-- **Auto Update**: PteroShield automatically updates itself daily to safeguard all hosts from vulnerabilities, exploits, and provide additional layers of security.
- - **Pterodactyl Wings Installation**: After completing the script installation, [PteroShield will prompt you to install Pterodactyl wings](https://github.com/pterodactyl-installer/pterodactyl-installer).
+- **Конфигурация**: Все параметры можно удобно настроить в файле `/root/pulsar_security/config.yml`.
+- **Автообновление**: PteroShield автоматически обновляется ежедневно, защищая все узлы от уязвимостей, эксплойтов и обеспечивая дополнительные уровни безопасности.
+ - **Установка крыльев птеродактиля**: После завершения установки скрипта [PteroShield предложит вам установить крылья птеродактиля](https://github.com/pterodactyl-installer/pterodactyl-installer).
